@@ -23,4 +23,8 @@ router.use('/api/'+ version +'/transaction',
   require('./transaction-routes')
 );
 
+router.use('/api/'+ version +'/chat',
+  require('./message-routes')
+);
+
 module.exports = router;
