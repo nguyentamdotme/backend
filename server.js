@@ -103,5 +103,3 @@ app.use('/', require('./app/routes/index'));
 server.listen(config.port, () => {
   console.log('Server listening on ' + config.host + ':' + config.port);
 });
-
-
