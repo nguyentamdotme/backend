@@ -262,3 +262,87 @@ export function update(_id, value) {
       .catch(error => reject(error));
   });
 }
+
+export function getAuctionRequestByUser(userId) {
+  return new Promise((resolve, reject) => {
+    Transaction.find({
+      listAuction: {$elemMatch: {owner: userId}}
+    })
+    .populate([
+      {path: 'productId'},
+      {path: 'productId.owner'}
+    ])
+    .sort({createdAt: 1})
+      .then(auction => {
+        resolve(auction);
+      })
+      .catch(err => reject(err));
+  });
+}
+
+
+export async function getChangeRequestByUser(userId) {
+  return new Promise((resolve, reject) => {
+    Product.find({
+      owner: userId
+    })
+      .then(async listProduct => {
+        if(listProduct.length == 0) {
+          resolve(listProduct);
+        } else {
+          const listTrans = await Promise.all(
+              listProduct.map( async (product,i) => {
+                const trans = await Transaction.findOne(
+                  {listChange: {$elemMatch: {productId: product._id}}}
+                );
+                return trans;
+              })
+            );
+          resolve(listTrans);
+        }
+      })
+      .catch(err => reject(err));
+  });
+}
+
+export function removeAuction(_id, index, userId) {
+  return new Promise((resolve, reject) => {
+    Transaction.findOne({_id})
+      .then(async trans => {
+        let newTrans = trans;
+        await newTrans.listAuction.splice(index, 1);
+        await Transaction.findOneAndUpdate({_id},{listAuction:newTrans.listAuction})
+          .then(result => {
+            if(!result) {
+              reject('Can not remove');
+            } else {
+              const success = result.success;
+              if(success.status == 0) {
+                if(success.isAuction) {
+                  const payWith = success.payWith;
+                  if(payWith.owner._id == userId) {
+                    const data = {
+                      payWith: null,
+                      isAuction: false,
+                      data: Date.now,
+                      status: -1
+                    }
+                    Transaction.findOneAndUpdate({_id},{success:data})
+                      .then(ok => resolve(ok))
+                      .catch(err => reject(err));
+                  } else {
+                    resolve(result);
+                  }
+                } else {
+                  resolve(result);
+                }
+              } else {
+                resolve(result);
+              }
+            }
+          })
+          .catch(err=> reject(err));
+      })
+      .catch(err => reject(err));
+  });
+}

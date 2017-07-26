@@ -98,3 +98,40 @@ router.route('/user/:userId')
         .then(result => res.json(result))
         .catch(error => res.json(error));
   });
+
+router.route('/change/user/:userId')
+  .get(passport.authenticate('jwt', { session: false}),
+    (req, res) => {
+      const userId = req.params.userId;
+      TransactionServices.getChangeRequestByUser(userId)
+        .then(result => res.json(result))
+        .catch(error => res.json(error));
+  });
+
+router.route('/auction/user/:userId')
+  .get(passport.authenticate('jwt', { session: false}),
+    (req, res) => {
+      const userId = req.params.userId;
+      TransactionServices.getAuctionRequestByUser(userId)
+        .then(result =>
+          res.json({status:200, data: result, message: 'Thành công'})
+        )
+        .catch(error =>
+          res.json({status:500, data: [], message: error})
+        );
+  });
+
+router.route('/auction/remove/')
+  .post(passport.authenticate('jwt', { session: false}),
+    (req, res) => {
+      const {_id, index, userId} = req.body;
+      TransactionServices.removeAuction(_id, index, userId)
+        .then(result =>
+          res.json({status:200, data: result, message: 'Thành công'})
+        )
+        .catch(error =>
+          res.json({status:500, data: [], message: error})
+        );
+  });
+
+

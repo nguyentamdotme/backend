@@ -38,6 +38,7 @@
     "serve-favicon": "^2.4.3"
   },
   "devDependencies": {
+    "babel-plugin-transform-async-to-generator": "^6.24.1",
     "morgan": "^1.8.2",
     "socketio": "^1.0.0"
   }
