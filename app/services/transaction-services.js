@@ -290,15 +290,33 @@ export async function getChangeRequestByUser(userId) {
         if(listProduct.length == 0) {
           resolve(listProduct);
         } else {
+          let listTransFinal = [];
           const listTrans = await Promise.all(
               listProduct.map( async (product,i) => {
                 const trans = await Transaction.findOne(
                   {listChange: {$elemMatch: {productId: product._id}}}
-                );
-                return trans;
+                ).populate([
+                  {path: 'productId'},
+                  {path: 'listChange.productId'}
+                ])
+                .then(async trans => {
+                  if(!trans) {
+                    return null;
+                  } else {
+                    const id = trans._id.toString();
+                    let re = true;
+                    if(listTransFinal.findIndex(e => e._id == id) < 0) {
+                      await listTransFinal.push(trans);
+                      re = trans;
+                    } else {
+                      re = null;
+                    }
+                    return re;
+                  }
+                });
               })
             );
-          resolve(listTrans);
+          resolve(listTransFinal);
         }
       })
       .catch(err => reject(err));
@@ -317,27 +335,89 @@ export function removeAuction(_id, index, userId) {
               reject('Can not remove');
             } else {
               const success = result.success;
-              if(success.status == 0) {
-                if(success.isAuction) {
-                  const payWith = success.payWith;
-                  if(payWith.owner._id == userId) {
-                    const data = {
-                      payWith: null,
-                      isAuction: false,
-                      data: Date.now,
-                      status: -1
+              if(result.listChange.length == 0 && result.listAuction.length == 1) {
+                Transaction.remove({_id: result._id})
+                  .then(res => {
+                    resolve(result);
+                  })
+                  .catch(err => reject(err));
+              } else {
+                if(success.status == 0) {
+                  if(success.isAuction) {
+                    const payWith = success.payWith;
+                    if(payWith.owner._id == userId) {
+                      const data = {
+                        payWith: null,
+                        isAuction: false,
+                        data: Date.now,
+                        status: -1
+                      }
+                      Transaction.findOneAndUpdate({_id},{success:data})
+                        .then(ok => resolve(ok))
+                        .catch(err => reject(err));
+                    } else {
+                      resolve(result);
                     }
-                    Transaction.findOneAndUpdate({_id},{success:data})
-                      .then(ok => resolve(ok))
-                      .catch(err => reject(err));
                   } else {
                     resolve(result);
                   }
                 } else {
                   resolve(result);
                 }
+              }
+            }
+          })
+          .catch(err=> reject(err));
+      })
+      .catch(err => reject(err));
+  });
+}
+
+
+export function removeChange(_id, index, userId) {
+  return new Promise((resolve, reject) => {
+    Transaction.findOne({_id})
+      .then(async trans => {
+        let newTrans = trans;
+        await newTrans.listChange.splice(index, 1);
+        await Transaction.findOneAndUpdate({_id},{listChange:newTrans.listChange})
+          .then(result => {
+            if(!result) {
+              reject('Can not remove');
+            } else {
+              const success = result.success;
+              if(result.listAuction.length == 0 && result.listChange.length == 1) {
+                Transaction.remove({_id: result._id})
+                  .then(res => {
+                    resolve(result);
+                  })
+                  .catch(err => reject(err));
               } else {
-                resolve(result);
+                console.log('remove success');
+                if(success.status == 0) {
+                  if(success.isAuction == false) {
+                    const payWith = success.payWith;
+                    if(payWith.productId.owner == userId) {
+                      const data = {
+                        payWith: null,
+                        isAuction: false,
+                        data: Date.now,
+                        status: -1
+                      }
+                      Transaction.findOneAndUpdate({_id},{success:data})
+                        .then(ok => {
+                          resolve(ok);
+                        })
+                        .catch(err => reject(err));
+                    } else {
+                      resolve(result);
+                    }
+                  } else {
+                    resolve(result);
+                  }
+                } else {
+                  resolve(result);
+                }
               }
             }
           })
